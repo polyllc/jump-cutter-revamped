@@ -10,7 +10,7 @@ if you need more help on a command, then just do this `(program name) --[command
 
 # Installation
 No fuss, get ffmpeg downloaded and installed and added to your PATH variable, and then all you need to do is compile the program.
-I compiled it with GCC 8.1.0 and using the C++14 standard. Though it should work on C++03 and C++11 (don't quote me on that).
+I compiled it with GCC 8.1.0 using the C++14 standard. Though it should work on C++03 and C++11 (don't quote me on that).
 This was tested in Windows 10, and it technically is not portable due to 2 commands used. They are labeled in the code, and if you're using macOS or linux or really any unix distro, the first command that "isn't portable" is. The second one that removes the temporary folder is not and will need to be changed if you plan on using it on a different system (although it will compile and run just fine no matter what the command is).
 
 # Other notes
