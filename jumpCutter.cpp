@@ -14,7 +14,6 @@
 using namespace std;
 
 //fun todo list!
-//  make the silent mode - removes all ffmpeg logs
 //  maybe make an output argument!?!
 //  make a better help!!?!?!?!?
 
@@ -94,7 +93,13 @@ const char* addOption(string name, char** args, int argcount, string help, strin
                     exit(0);
                 }
                 else{
-                    return args[i+1];
+                    /*
+                    string value = args[i+1]; //it just doesn't work otherwise??!?!?!
+                    return value.c_str();
+
+                    ^ ok so that code does some weird stuff when it casts from char* to string then back to const char*, it outputs some characters that were never there in the first place
+                    */
+                    return args[i+1]; //sadly this does not work for directories with spaces even though argv says it works
                 }
             }
         }
@@ -115,27 +120,33 @@ int main(int argc, char** argv){
     */
 
     if(argc == 1){
-        cout << "Arguments\n file\n deleteResidualFiles (0)\n silenceThreshold (50)\n soundSpeed (1)\n silentSpeed (5)\n silenceDuration (2s)";
+        cout << "Arguments\n file (default: none)\n deleteResidualFiles (default: 1)\n silenceThreshold (default 50, meaning -50db)\n soundSpeed (default: 1)\n silentSpeed (default: 5)\n silenceDuration (default: 2)\nsilence (default: 0)";
         cout << "\n\nUse --[argument name] to get more information about it";
         exit(0);
     }
 
     //options!!!!
     string filepath = addOption("file", argv, argc, "The file to work on (required)");
-    string deleteResidual = addOption("deleteResidualFiles", argv, argc, "Remove all files other than the input file and the output file (not required)", "0");
+    string deleteResidual = addOption("deleteResidualFiles", argv, argc, "Remove all files other than the input file and the output file (not required)", "1");
     string silenceThreshold = addOption("silenceThreshold", argv, argc, "The threshold to trigger \"silence\" from 0 (all sound) to 100 (nothing) (50)", "50");
     string soundSpeed = addOption("soundSpeed", argv, argc, "The speed at which the parts of the video that has sound plays at (1x)", "1");
     string silentSpeed = addOption("silentSpeed", argv, argc, "The speed at which the parts of the video that does not have sound plays at (5x)", "5");
     string silenceDuration = addOption("silenceDuration", argv, argc, "The duration of the silence (in seconds) to trigger the \"silence\" (2s)", "0.5");
-
+    string silence = addOption("silence", argv, argc, "Suppress most messages that ffmpeg displays & most the messages outputted by this program", "0");
 
     if(filepath == ""){
         cout << "\nThe argument 'file' is required\n";
         exit(0);
     }
 
-    exec("mkdir temp"); //1/2: Command that is not portable, but way more portable than the second...
+    //need a filename to replace filepath when needed
+    std::size_t found = filepath.find_last_of("/\\");
+    string filename = filepath.substr(found+1);
+    string filedir = filepath.substr(0, found+1);
 
+    string loglevel = (silence == "0" ? "" : " -loglevel warning ");
+    cout << loglevel;
+    exec("mkdir temp"); //1/2: Command that is not portable, but way more portable than the second...
     //the stuff that actually detects silence
     string out = exec("ffmpeg -i " + filepath + " -af silencedetect=n=-" + string(silenceThreshold) + "dB:d=" + silenceDuration + "  -f null - 2>&1");
     cout << out;
@@ -155,48 +166,46 @@ int main(int argc, char** argv){
     vector<string> filenamesSilent;
 
     //for the part of the video where there ISN'T silence
-
     for(int i = 0; i < start.size(); i++){
-         string command = "ffmpeg -to ";
-         command.append(to_string(stof(start[i]))); //for some weird reason, it needs to be cast or else it will have 'frame=' on the last video clip
-         command.append(" -ss "); //don't ask why i have so many .append's, i just felt like it
+         string command = "ffmpeg ";
+         command.append(loglevel + " -to " + to_string(stof(start[i])) + " -ss "); //for some weird reason, it needs to be cast or else it will have 'frame=' on the last video clip
          if(i == 0){
             command.append("0");
          }
          else{
             command.append(send[i-1]);
          }
-         command.append(" -y -i "  + filepath + " -filter_complex \"[0:v]setpts=" + to_string(1/stof(soundSpeed)) + "*PTS[v];[0:a]atempo=" + soundSpeed + "[a]\" -map \"[v]\" -map \"[a]\" temp/" + filepath + to_string(i) + "sound.mp4" );
-         if(start[i] != "0" && start[i] != send[i-1]){ //one of many error checking things that i have no idea why it works
-            filenamesSound.push_back("temp/" + filepath + to_string(i) + "sound.mp4");
+         command.append(" -y -i "  + filepath + " -filter_complex \"[0:v]setpts=" + to_string(1/stof(soundSpeed)) + "*PTS[v];[0:a]atempo=" + soundSpeed + "[a]\" -map \"[v]\" -map \"[a]\" temp/" + filename + to_string(i) + "sound.mp4" );
+         if(start[i] != "0" && start[i] != send[abs(i)-1]){ //one of many error checking things that i have no idea why it works
+            filenamesSound.push_back("temp/" + filename + to_string(i) + "sound.mp4");
          }
          else{
             filenamesSound.push_back("0");
          }
+
          cout << '\n' << command << '\n';
          exec(command);
-
      }
 
      //for the part of the video where there IS silence
 
      for(int i = 0; i < start.size()-1; i++){
-         string command = "ffmpeg -to ";
-         command.append(send[i]);
-         command.append(" -ss ");
-         command.append(start[i]);
-         command.append(" -y -i "  + filepath + " -filter_complex \"[0:v]setpts=" + to_string(1/stof(silentSpeed)) + "*PTS[v];[0:a]atempo=" + silentSpeed + "[a]\" -map \"[v]\" -map \"[a]\" temp/" + filepath + to_string(i) + "silent.mp4" );
-         filenamesSilent.push_back("temp/" + filepath + to_string(i) + "silent.mp4");
+         string command = "ffmpeg ";
+         command.append(loglevel + " -to " + send[i] + " -ss " + start[i]);
+         command.append(" -y -i "  + filepath + " -filter_complex \"[0:v]setpts=" + to_string(1/stof(silentSpeed)) + "*PTS[v];[0:a]atempo=" + silentSpeed + "[a]\" -map \"[v]\" -map \"[a]\" temp/" + filename + to_string(i) + "silent.mp4" );
+         filenamesSilent.push_back("temp/" + filename + to_string(i) + "silent.mp4");
          cout << '\n' << command << '\n';
          exec(command);
 
      }
 
-     //converts all files to .ts/mpeg-2 (could've done this from the other one but, again, i was too lazy to do so.
-     string command = "ffmpeg -y -i \"concat:";
+     //converts all files to .ts/mpeg-2, and it does not work with the stuff above, you can't convert and use a filtergraph at the same time
+     string command = "ffmpeg ";
+     command.append(loglevel);
+     command.append("-y -i \"concat:");
      for(int i = 0; i < filenamesSound.size(); i++){
         if(exists(filenamesSound[i])){
-            exec("ffmpeg -y -i " + filenamesSound[i] + " -c copy -bsf:v h264_mp4toannexb -f mpegts " + filenamesSound[i] + ".ts");
+            exec("ffmpeg" + loglevel + " -y -i " + filenamesSound[i] + " -c copy -bsf:v h264_mp4toannexb -f mpegts " + filenamesSound[i] + ".ts");
         }
         else{
             filenamesSound[i] = "";
@@ -204,7 +213,7 @@ int main(int argc, char** argv){
      }
      for(int i = 0; i < filenamesSilent.size(); i++){
         if(exists(filenamesSilent[i])){
-            exec("ffmpeg -y -i " + filenamesSilent[i] + " -c copy -bsf:v h264_mp4toannexb -f mpegts " + filenamesSilent[i] + ".ts");
+            exec("ffmpeg " + loglevel + "-y -i " + filenamesSilent[i] + " -c copy -bsf:v h264_mp4toannexb -f mpegts " + filenamesSilent[i] + ".ts");
         }
         else{
             filenamesSilent[i] = "";
@@ -215,18 +224,18 @@ int main(int argc, char** argv){
     //flip flops between starting with a sound clip or with a slient clip
      for(int i = 0; i < (filenamesSilent.size() > filenamesSound.size() ? filenamesSilent.size() : filenamesSound.size()) + 1; i++){
         if(filenamesSound[0] == "0"){ //this means the video starts with silence
-            if(filenamesSilent.size() > i && filenamesSilent[i] != ""){
+            if(filenamesSilent.size() > i && filenamesSilent[i] != "" && exists(filenamesSilent[i] + ".ts")){
                 command += filenamesSilent[i] + ".ts|";
             }
-            if(filenamesSound.size() > i+1 && filenamesSound[i] != ""){
+            if(filenamesSound.size() > i+1 && filenamesSound[i] != "" && exists(filenamesSound[i] + ".ts")){
                 command += filenamesSound[i+1] + ".ts|";
             }
         }
         else{
-            if(filenamesSound.size() > i && filenamesSound[i] != ""){
+            if(filenamesSound.size() > i && filenamesSound[i] != "" && exists(filenamesSound[i] + ".ts")){
                 command += filenamesSound[i] + ".ts|";
             }
-            if(filenamesSilent.size() > i && filenamesSilent[i] != ""){
+            if(filenamesSilent.size() > i && filenamesSilent[i] != "" && exists(filenamesSilent[i] + ".ts")){
                 command += filenamesSilent[i] + ".ts|";
             }
         }
@@ -235,11 +244,12 @@ int main(int argc, char** argv){
 
 
 
-     command.append("\" -c copy -bsf:a aac_adtstoasc finished_" + filepath);
+     command.append("\" -c copy -bsf:a aac_adtstoasc " + filedir + "finished_" + filename);
      cout << command;
      exec(command); //creates the final file!
      if(deleteResidual != "0"){
         exec("rmdir /Q /S temp"); //2/2: Command that is *not* portable between systems.
      }
+     cout << "\n\nFinished, you can find your created file in the same directory as the input file you put. It is called: finished_" << filename;
      return 0;
 }
