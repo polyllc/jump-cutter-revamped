@@ -17,3 +17,4 @@ The code is really messy, especially the parts that were made first (the silence
 I still want to improve it as there are some things on the todo list such as: better help, less logs and make an output argument.
 I also would want to make a GUI with it, maybe something in imgui or gtk++ or something like that.
 And probably the best: make it so it will do multiple files at once (or in a sequence) by making a queue or something, would be really neat for those video lectures that are in a 30 part series!
+Also if you're wondering, it's about 4.6x faster than carykh's version/method.
