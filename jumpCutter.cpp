@@ -84,7 +84,7 @@ string exec(string command){ //stackoverflow!!!
 }
 
 
-const char* addOption(string name, char** args, int argcount, string help, string def = ""){ //does the cool option thingy
+string addOption(string name, char** args, int argcount, string help, string def = ""){ //does the cool option thingy
     if(argcount > 1){
         for(int i = 0; i < argcount; i++){
             if(args[i] == "--" + name){
@@ -93,18 +93,14 @@ const char* addOption(string name, char** args, int argcount, string help, strin
                     exit(0);
                 }
                 else{
-                    /*
-                    string value = args[i+1]; //it just doesn't work otherwise??!?!?!
-                    return value.c_str();
-
-                    ^ ok so that code does some weird stuff when it casts from char* to string then back to const char*, it outputs some characters that were never there in the first place
-                    */
-                    return args[i+1]; //sadly this does not work for directories with spaces even though argv says it works
+                        string value = args[i+1];
+                        return value;
                 }
             }
         }
-        return def.c_str();
+        return def;
     }
+    return "";
 }
 
 
@@ -129,14 +125,28 @@ int main(int argc, char** argv){
     string filepath = addOption("file", argv, argc, "The file to work on (required)");
     string deleteResidual = addOption("deleteResidualFiles", argv, argc, "Remove all files other than the input file and the output file (not required)", "1");
     string silenceThreshold = addOption("silenceThreshold", argv, argc, "The threshold to trigger \"silence\" from 0 (all sound) to 100 (nothing) (50)", "50");
-    string soundSpeed = addOption("soundSpeed", argv, argc, "The speed at which the parts of the video that has sound plays at (1x)", "1");
-    string silentSpeed = addOption("silentSpeed", argv, argc, "The speed at which the parts of the video that does not have sound plays at (5x)", "5");
+    string soundSpeed = addOption("soundSpeed", argv, argc, "The speed at which the parts of the video that has sound plays at (1x) (min: 0.5, max: 100)", "1");
+    string silentSpeed = addOption("silentSpeed", argv, argc, "The speed at which the parts of the video that does not have sound plays at (5x) (min: 0.5, max: 100", "5");
     string silenceDuration = addOption("silenceDuration", argv, argc, "The duration of the silence (in seconds) to trigger the \"silence\" (2s)", "0.5");
-    string silence = addOption("silence", argv, argc, "Suppress most messages that ffmpeg displays & most the messages outputted by this program", "0");
+    string silence = addOption("silent", argv, argc, "Suppress most messages that ffmpeg displays & most the messages outputted by this program (1 (silence) | 0 (normal) | debug)", "0");
 
     if(filepath == ""){
         cout << "\nThe argument 'file' is required\n";
         exit(0);
+    }
+
+    if(stoi(soundSpeed) > 100){
+        soundSpeed = "100";
+    }
+    if(stof(soundSpeed) < 0.5){
+        soundSpeed = "0.5";
+    }
+
+    if(stoi(silentSpeed) > 100){
+        silentSpeed = "100";
+    }
+    if(stof(silentSpeed) < 0.5){
+        silentSpeed = "0.5";
     }
 
     //need a filename to replace filepath when needed
@@ -145,16 +155,19 @@ int main(int argc, char** argv){
     string filedir = filepath.substr(0, found+1);
 
     string loglevel = (silence == "0" ? "" : " -loglevel warning ");
+    if(silence == "debug"){
+        loglevel = " -loglevel debug ";
+    }
     exec("mkdir temp"); //1/2: Command that is not portable, but way more portable than the second...
     //the stuff that actually detects silence
-    string out = exec("ffmpeg -i " + filepath + " -af silencedetect=n=-" + string(silenceThreshold) + "dB:d=" + silenceDuration + "  -f null - 2>&1");
+    string out = exec("ffmpeg -i \"" + filepath + "\" -af silencedetect=n=-" + string(silenceThreshold) + "dB:d=" + silenceDuration + "  -f null - 2>&1");
     cout << out;
     vector<string> start = amountOccured(out.c_str(), "silence_start:");
     vector<string> send = amountOccured(out.c_str(), "silence_end:");
     for(int i = 0; i < start.size(); i++){
         start[i] = start[i].substr(0, start[i].find('[')-1);
     }
-    string dur = exec("ffmpeg -i " + filepath + " -f null - 2>&1");
+    string dur = exec("ffmpeg -i \"" + filepath + "\" -f null - 2>&1");
     vector<string>splited = split(amountOccured(dur.c_str(), "Duration:")[0], ":");
     float num = stoi(splited[0]) * 3600; //i could make this into one or two lines... but maybe later
     num += stoi(splited[1]) * 60;
@@ -174,7 +187,7 @@ int main(int argc, char** argv){
          else{
             command.append(send[i-1]);
          }
-         command.append(" -y -i "  + filepath + " -filter_complex \"[0:v]setpts=" + to_string(1/stof(soundSpeed)) + "*PTS[v];[0:a]atempo=" + soundSpeed + "[a]\" -map \"[v]\" -map \"[a]\" temp/" + filename + to_string(i) + "sound.mp4" );
+         command.append(" -y -i \""  + filepath + "\" -filter_complex \"[0:v]setpts=" + to_string(1/stof(soundSpeed)) + "*PTS[v];[0:a]atempo=" + soundSpeed + "[a]\" -map \"[v]\" -map \"[a]\" temp/" + filename + to_string(i) + "sound.mp4" );
          if(start[i] != "0" && start[i] != send[abs(i)-1]){ //one of many error checking things that i have no idea why it works
             filenamesSound.push_back("temp/" + filename + to_string(i) + "sound.mp4");
          }
@@ -191,7 +204,7 @@ int main(int argc, char** argv){
      for(int i = 0; i < start.size()-1; i++){
          string command = "ffmpeg ";
          command.append(loglevel + " -to " + send[i] + " -ss " + start[i]);
-         command.append(" -y -i "  + filepath + " -filter_complex \"[0:v]setpts=" + to_string(1/stof(silentSpeed)) + "*PTS[v];[0:a]atempo=" + silentSpeed + "[a]\" -map \"[v]\" -map \"[a]\" temp/" + filename + to_string(i) + "silent.mp4" );
+         command.append(" -y -i \""  + filepath + "\" -filter_complex \"[0:v]setpts=" + to_string(1/stof(silentSpeed)) + "*PTS[v];[0:a]atempo=" + silentSpeed + "[a]\" -map \"[v]\" -map \"[a]\" temp/" + filename + to_string(i) + "silent.mp4" );
          filenamesSilent.push_back("temp/" + filename + to_string(i) + "silent.mp4");
          cout << '\n' << command << '\n';
          exec(command);
@@ -243,7 +256,7 @@ int main(int argc, char** argv){
 
 
 
-     command.append("\" -c copy -bsf:a aac_adtstoasc " + filedir + "finished_" + filename);
+     command.append("\" -c copy -bsf:a aac_adtstoasc \"" + filedir + "finished_" + filename + "\"");
      cout << command;
      exec(command); //creates the final file!
      if(deleteResidual != "0"){
