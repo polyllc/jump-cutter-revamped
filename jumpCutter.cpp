@@ -145,7 +145,6 @@ int main(int argc, char** argv){
     string filedir = filepath.substr(0, found+1);
 
     string loglevel = (silence == "0" ? "" : " -loglevel warning ");
-    cout << loglevel;
     exec("mkdir temp"); //1/2: Command that is not portable, but way more portable than the second...
     //the stuff that actually detects silence
     string out = exec("ffmpeg -i " + filepath + " -af silencedetect=n=-" + string(silenceThreshold) + "dB:d=" + silenceDuration + "  -f null - 2>&1");
