@@ -130,6 +130,10 @@ int main(int argc, char** argv){
     string silenceDuration = addOption("silenceDuration", argv, argc, "The duration of the silence (in seconds) to trigger the \"silence\" (2s)", "0.5");
     string silence = addOption("silent", argv, argc, "Suppress most messages that ffmpeg displays & most the messages outputted by this program (1 (silence) | 0 (normal) | debug)", "0");
 
+    if(argc == 2){
+        filepath = argv[1];
+    }
+
     if(filepath == ""){
         cout << "\nThe argument 'file' is required\n";
         exit(0);
@@ -153,12 +157,12 @@ int main(int argc, char** argv){
     std::size_t found = filepath.find_last_of("/\\");
     string filename = filepath.substr(found+1);
     string filedir = filepath.substr(0, found+1);
-
+    replace(filedir.begin(), filedir.end(), '\\', '/');
     string loglevel = (silence == "0" ? "" : " -loglevel warning ");
     if(silence == "debug"){
         loglevel = " -loglevel debug ";
     }
-    exec("mkdir temp"); //1/2: Command that is not portable, but way more portable than the second...
+    exec("mkdir \"" + filedir +"temp\""); //1/2: Command that is not portable, but way more portable than the second...
     //the stuff that actually detects silence
     string out = exec("ffmpeg -i \"" + filepath + "\" -af silencedetect=n=-" + string(silenceThreshold) + "dB:d=" + silenceDuration + "  -f null - 2>&1");
     cout << out;
@@ -187,9 +191,9 @@ int main(int argc, char** argv){
          else{
             command.append(send[i-1]);
          }
-         command.append(" -y -i \""  + filepath + "\" -filter_complex \"[0:v]setpts=" + to_string(1/stof(soundSpeed)) + "*PTS[v];[0:a]atempo=" + soundSpeed + "[a]\" -map \"[v]\" -map \"[a]\" temp/" + filename + to_string(i) + "sound.mp4" );
+         command.append(" -y -i \""  + filepath + "\" -filter_complex \"[0:v]setpts=" + to_string(1/stof(soundSpeed)) + "*PTS[v];[0:a]atempo=" + soundSpeed + "[a]\" -map \"[v]\" -map \"[a]\" \"" + filedir +"temp/" + filename + to_string(i) + "sound.mp4\"" );
          if(start[i] != "0" && start[i] != send[abs(i)-1]){ //one of many error checking things that i have no idea why it works
-            filenamesSound.push_back("temp/" + filename + to_string(i) + "sound.mp4");
+            filenamesSound.push_back("\"" + filedir +"temp/" + filename + to_string(i) + "sound.mp4\"");
          }
          else{
             filenamesSound.push_back("0");
@@ -204,8 +208,8 @@ int main(int argc, char** argv){
      for(int i = 0; i < start.size()-1; i++){
          string command = "ffmpeg ";
          command.append(loglevel + " -to " + send[i] + " -ss " + start[i]);
-         command.append(" -y -i \""  + filepath + "\" -filter_complex \"[0:v]setpts=" + to_string(1/stof(silentSpeed)) + "*PTS[v];[0:a]atempo=" + silentSpeed + "[a]\" -map \"[v]\" -map \"[a]\" temp/" + filename + to_string(i) + "silent.mp4" );
-         filenamesSilent.push_back("temp/" + filename + to_string(i) + "silent.mp4");
+         command.append(" -y -i \""  + filepath + "\" -filter_complex \"[0:v]setpts=" + to_string(1/stof(silentSpeed)) + "*PTS[v];[0:a]atempo=" + silentSpeed + "[a]\" -map \"[v]\" -map \"[a]\" \"" + filedir +"temp/" + filename + to_string(i) + "silent.mp4\"" );
+         filenamesSilent.push_back("\"" + filedir +"temp/" + filename + to_string(i) + "silent.mp4\"");
          cout << '\n' << command << '\n';
          exec(command);
 
@@ -260,7 +264,7 @@ int main(int argc, char** argv){
      cout << command;
      exec(command); //creates the final file!
      if(deleteResidual != "0"){
-        exec("rmdir /Q /S temp"); //2/2: Command that is *not* portable between systems.
+        exec("rmdir /Q /S \"" + filedir +"temp\""); //2/2: Command that is *not* portable between systems.
      }
      cout << "\n\nFinished, you can find your created file in the same directory as the input file you put. It is called: finished_" << filename;
      return 0;
