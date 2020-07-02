@@ -193,7 +193,7 @@ int main(int argc, char** argv){
          }
          command.append(" -y -i \""  + filepath + "\" -filter_complex \"[0:v]setpts=" + to_string(1/stof(soundSpeed)) + "*PTS[v];[0:a]atempo=" + soundSpeed + "[a]\" -map \"[v]\" -map \"[a]\" \"" + filedir +"temp/" + filename + to_string(i) + "sound.mp4\"" );
          if(start[i] != "0" && start[i] != send[abs(i)-1]){ //one of many error checking things that i have no idea why it works
-            filenamesSound.push_back("\"" + filedir +"temp/" + filename + to_string(i) + "sound.mp4\"");
+            filenamesSound.push_back(filedir +"temp/" + filename + to_string(i) + "sound.mp4");
          }
          else{
             filenamesSound.push_back("0");
@@ -209,7 +209,7 @@ int main(int argc, char** argv){
          string command = "ffmpeg ";
          command.append(loglevel + " -to " + send[i] + " -ss " + start[i]);
          command.append(" -y -i \""  + filepath + "\" -filter_complex \"[0:v]setpts=" + to_string(1/stof(silentSpeed)) + "*PTS[v];[0:a]atempo=" + silentSpeed + "[a]\" -map \"[v]\" -map \"[a]\" \"" + filedir +"temp/" + filename + to_string(i) + "silent.mp4\"" );
-         filenamesSilent.push_back("\"" + filedir +"temp/" + filename + to_string(i) + "silent.mp4\"");
+         filenamesSilent.push_back(filedir +"temp/" + filename + to_string(i) + "silent.mp4");
          cout << '\n' << command << '\n';
          exec(command);
 
