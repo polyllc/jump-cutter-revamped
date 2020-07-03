@@ -216,12 +216,9 @@ int main(int argc, char** argv){
      }
 
      //converts all files to .ts/mpeg-2, and it does not work with the stuff above, you can't convert and use a filtergraph at the same time
-     string command = "ffmpeg ";
-     command.append(loglevel);
-     command.append("-y -i \"concat:");
      for(int i = 0; i < filenamesSound.size(); i++){
         if(exists(filenamesSound[i])){
-            exec("ffmpeg" + loglevel + " -y -i " + filenamesSound[i] + " -c copy -bsf:v h264_mp4toannexb -f mpegts " + filenamesSound[i] + ".ts");
+            exec("ffmpeg" + loglevel + " -y -i \"" + filenamesSound[i] + "\" -c copy -bsf:v h264_mp4toannexb -f mpegts \"" + filenamesSound[i] + ".ts\"");
         }
         else{
             filenamesSound[i] = "";
@@ -229,38 +226,70 @@ int main(int argc, char** argv){
      }
      for(int i = 0; i < filenamesSilent.size(); i++){
         if(exists(filenamesSilent[i])){
-            exec("ffmpeg " + loglevel + "-y -i " + filenamesSilent[i] + " -c copy -bsf:v h264_mp4toannexb -f mpegts " + filenamesSilent[i] + ".ts");
+            exec("ffmpeg " + loglevel + "-y -i \"" + filenamesSilent[i] + "\" -c copy -bsf:v h264_mp4toannexb -f mpegts \"" + filenamesSilent[i] + ".ts\"");
         }
         else{
             filenamesSilent[i] = "";
         }
      }
 
-
+    vector<string> correctOrder;
     //flip flops between starting with a sound clip or with a slient clip
      for(int i = 0; i < (filenamesSilent.size() > filenamesSound.size() ? filenamesSilent.size() : filenamesSound.size()) + 1; i++){
         if(filenamesSound[0] == "0"){ //this means the video starts with silence
             if(filenamesSilent.size() > i && filenamesSilent[i] != "" && exists(filenamesSilent[i] + ".ts")){
-                command += filenamesSilent[i] + ".ts|";
+                correctOrder.push_back(filenamesSilent[i] + ".ts");
             }
             if(filenamesSound.size() > i+1 && filenamesSound[i] != "" && exists(filenamesSound[i] + ".ts")){
-                command += filenamesSound[i+1] + ".ts|";
+                correctOrder.push_back(filenamesSound[i+1] + ".ts");
             }
         }
         else{
             if(filenamesSound.size() > i && filenamesSound[i] != "" && exists(filenamesSound[i] + ".ts")){
-                command += filenamesSound[i] + ".ts|";
+                correctOrder.push_back(filenamesSound[i] + ".ts");
             }
             if(filenamesSilent.size() > i && filenamesSilent[i] != "" && exists(filenamesSilent[i] + ".ts")){
-                command += filenamesSilent[i] + ".ts|";
+                correctOrder.push_back(filenamesSilent[i] + ".ts");
             }
         }
      }
+     //i have to do this because of the command line character limit :(
+     bool finishedConcat = false;
+     int indexOrder = 0; //current index of the correctOrder vector to check if its done
+     int numConcats = 0; //the number of concats to check if it needs to stitch it back to one file
+     while(!finishedConcat){
+
+        string command = "ffmpeg ";
+        command.append(loglevel);
+        command.append("-y -i \"concat:");
+        cout << int(6000/(filedir.length()+filename.length()+8));
+        for(int i = 0; i < int(1000/(filedir.length()+filename.length()+8)); i++){
+            command.append(correctOrder[indexOrder] + "|"); //appends the filedirs to the command
+            indexOrder++;
+            if(indexOrder >= correctOrder.size()){
+                i = 10000; //you can never be too sure ;)
+                //break;
+            }
+        }
+        command = command.substr(0,command.length()-1);
+        command.append("\" \"" + filedir + "temp/finished_" + filename + to_string(numConcats) + ".ts\"");
+        cout << command;
+        exec(command); //concats!
+        if(indexOrder >= correctOrder.size()){
+            finishedConcat = true;
+        }
+        numConcats++;
+     }
+
+     string command = "ffmpeg ";
+     command.append(loglevel);
+     command.append("-y -i \"concat:");
+
+     for(int i = 0; i < numConcats; i++){
+        command.append(filedir + "temp/finished_" + filename + to_string(i) + ".ts|");
+     }
      command = command.substr(0,command.length()-1);
-
-
-
-     command.append("\" -c copy -bsf:a aac_adtstoasc \"" + filedir + "finished_" + filename + "\"");
+     command.append("\" \"" + filedir + "finished_" + filename + "\"");
      cout << command;
      exec(command); //creates the final file!
      if(deleteResidual != "0"){
