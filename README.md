@@ -19,3 +19,4 @@ I still want to improve it as there are some things on the todo list such as: be
 I also would want to make a GUI with it, maybe something in imgui or gtkmm or something like that.
 And probably the best: make it so it will do multiple files at once (or in a sequence) by making a queue or something, would be really neat for those video lectures that are in a 30 part series!
 Also if you're wondering, it's about 4.6x faster than carykh's version/method.
+Right now, it is more of a **lossy** converter as sometimes, very rarely, it would have the audio cut out maybe a second before (that's pretty much it). But it's pretty much perfect in terms of quality, especially with the new updates which is much better at error handling. 
