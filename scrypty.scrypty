@@ -1,0 +1,8 @@
+{
+  "programType":"cpp",
+  
+  "compile":{
+    "mainFile":"jumpCutter.cpp",
+    "method":"singleg++",
+  }
+}
