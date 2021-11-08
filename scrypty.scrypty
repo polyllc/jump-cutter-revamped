@@ -3,6 +3,6 @@
   
   "compile":{
     "mainFile":"jumpCutter.cpp",
-    "method":"singleg++",
+    "method":"singleg++"
   }
 }
